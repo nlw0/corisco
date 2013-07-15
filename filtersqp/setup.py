@@ -19,8 +19,8 @@ setup(
 
     ext_modules=[
         distutils.extension.Extension(
-            "filtersqp.trust_bisection",
-            sources=["filtersqp/trust_bisection_module.cc"],
+            "filtersqp.trust_rootfind",
+            sources=["filtersqp/trust_rootfind_module.cc"],
         ),
     ],
     include_dirs=[numpy.get_include()],

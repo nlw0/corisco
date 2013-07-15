@@ -20,7 +20,7 @@ public:
   { }
 
   double operator()(double nu)
-  {    
+  {
     double output = 0.0;
     int i;
     for (i=0; i<Nlam; ++i)
@@ -29,12 +29,12 @@ public:
         output += y * y;
       }
     return sqrt(output) - rho;
-  }  
+  }
 };
 
 
 static PyObject * length_wrapper(PyObject *self, PyObject *args)
-{  
+{
   double alpha;
   double nu;
   PyArrayObject *lam_obj;
@@ -55,7 +55,7 @@ static PyObject * length_wrapper(PyObject *self, PyObject *args)
 
 
 static PyObject * find_step_size(PyObject *self, PyObject *args)
-{  
+{
   double alpha;
   PyArrayObject *lam_obj;
   double rho, rho_tol;
@@ -102,7 +102,8 @@ static PyObject * find_step_size(PyObject *self, PyObject *args)
 
   LengthCalculator length(alpha, Nlam, lam, rho);
 
-  // The body from our implementation of the "regula falsi", or false position method.
+  // The body from our implementation of the "regula falsi", or double
+  // false position method.
   for(int ki=0; ki < 100; ++ki)
     {
       double f_a = length(nu_min + nu_a);
@@ -138,7 +139,7 @@ static PyObject * find_step_size(PyObject *self, PyObject *args)
       // Assert that the function (apparently) descending, and that
       // the root is (or seems to be) within the interval.
       if ((f_a < 0) || (f_b > 0)) return NULL;
-      
+
       // New point position, same formula from the secant method.
       double nu_new = nu_b - f_b * (nu_b - nu_a) / (f_b - f_a);
       // If the point is too close from one of the current extremes,
@@ -176,7 +177,7 @@ static PyObject * find_step_size(PyObject *self, PyObject *args)
   return NULL;
 }
 
-static PyMethodDef TrustBisectionMethods[] =
+static PyMethodDef TrustRootfindMethods[] =
   {
     {"find_step_size", find_step_size, METH_VARARGS,
      "Help.\n"},
@@ -187,7 +188,7 @@ static PyMethodDef TrustBisectionMethods[] =
 
 PyMODINIT_FUNC
 
-inittrust_bisection(void) {
-  (void) Py_InitModule("trust_bisection", TrustBisectionMethods);
+inittrust_rootfind(void) {
+  (void) Py_InitModule("trust_rootfind", TrustRootfindMethods);
   import_array();
 }

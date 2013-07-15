@@ -5,10 +5,10 @@ import argparse
 import code
 from pylab import *
 
-from filtersqp.trust_bisection import find_step_size, calculate_distance
+from filtersqp.trust_rootfind import find_step_size, calculate_distance
 
 def main():
-    parser = argparse.ArgumentParser(description='Test bisection technique to find step size in trust region optimization methods.')
+    parser = argparse.ArgumentParser(description='Test root-finding method to find step size in trust region optimization methods.')
     parser.add_argument('--alpha', type=float)
     parser.add_argument('--lam', type=float, nargs='+')
     parser.add_argument('--rho', type=float)
