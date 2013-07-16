@@ -23,7 +23,10 @@ def main():
     print 'λ:', lam
     print 'ρ:', rho
 
-    nu = find_step_size(alpha, lam, rho, 1e-5)
+    print "f(0)=", calculate_distance(alpha, lam, 0)
+
+
+    nu = find_step_size(alpha, lam, rho, 1e-14)
     print 'nu=', nu
     print "f(nu)-rho=", calculate_distance(alpha, lam, nu) - rho
 
@@ -33,11 +36,9 @@ def main():
     yy = array([calculate_distance(alpha, lam, x) for x in xx])
 
     ion()
-    loglog(xx, yy)
-    #loglog(xx[[1,-2]], [rho, rho], 'r-')
-
-    loglog([nu/10.0, nu*10.0], [rho, rho], 'r-')
-    loglog(nu, calculate_distance(alpha, lam, nu), 'rd')
+    plot(xx, yy)
+    plot([nu/10.0, nu*10.0], [rho, rho], 'r-')
+    plot(nu, calculate_distance(alpha, lam, nu), 'rd')
 
     grid()
 

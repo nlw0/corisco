@@ -1,4 +1,4 @@
 from attest import Tests
-from tests.math import Math
+from tests.rootfind import Rootfind
 
-collection = Tests([Math])
+collection = Tests([Rootfind])

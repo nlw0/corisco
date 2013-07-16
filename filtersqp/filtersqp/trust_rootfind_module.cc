@@ -4,31 +4,30 @@
 #include <iostream>
 
 
-
 // Stores the model parameters, and calculates a step size for different nu values.
 class LengthCalculator{
   double alpha;
   npy_int Nlam;
   double* lam;
   double rho;
+
 public:
   LengthCalculator(double _alpha, npy_int _Nlam, double* _lam, double _rho):
-    alpha(_alpha),
-    Nlam(_Nlam),
-    lam(_lam),
-    rho(_rho)
+    alpha(_alpha), Nlam(_Nlam), lam(_lam), rho(_rho)
   { }
 
-  double operator()(double nu)
+  double calculate(double nu)
   {
     double output = 0.0;
-    int i;
-    for (i=0; i<Nlam; ++i)
+    npy_int i;
+    double y;
+    for (i = 0; i < this->Nlam; ++i)
       {
-        double y = alpha / (lam[i] + nu);
+        y = this->alpha / ((this->lam)[i] + nu);
         output += y * y;
       }
-    return sqrt(output) - rho;
+    output = sqrt(output) - this->rho;
+    return output;
   }
 };
 
@@ -50,7 +49,9 @@ static PyObject * length_wrapper(PyObject *self, PyObject *args)
 
   LengthCalculator length(alpha, Nlam, lam, 0.0);
 
-  return Py_BuildValue("d", length(nu));
+  double output = length.calculate(nu);
+
+  return Py_BuildValue("d", output);
 }
 
 
@@ -101,18 +102,21 @@ static PyObject * find_step_size(PyObject *self, PyObject *args)
     }
 
   LengthCalculator length(alpha, Nlam, lam, rho);
+  LengthCalculator length2(alpha, Nlam, lam, 0.0);
+
+  double nu_new, f_new;
 
   // The body from our implementation of the "regula falsi", or double
   // false position method.
   for(int ki=0; ki < 100; ++ki)
     {
-      double f_a = length(nu_min + nu_a);
-      double f_b = length(nu_min + nu_b);
+      double f_a = length.calculate(nu_min + nu_a);
+      double f_b = length.calculate(nu_min + nu_b);
 
-      std::cout << ki << std::endl
-                << nu_min << std::endl
-                << nu_a << " " << f_a << std::endl
-                << nu_b << " " << f_b <<std::endl <<std::endl;
+      // std::cout << ki << std::endl
+      //           << nu_min << std::endl
+      //           << nu_a << " " << f_a << std::endl
+      //           << nu_b << " " << f_b << std::endl <<std::endl;
 
       if (isinf(f_a) || isinf(f_b) ) return NULL;
 
@@ -141,17 +145,17 @@ static PyObject * find_step_size(PyObject *self, PyObject *args)
       if ((f_a < 0) || (f_b > 0)) return NULL;
 
       // New point position, same formula from the secant method.
-      double nu_new = nu_b - f_b * (nu_b - nu_a) / (f_b - f_a);
+      nu_new = nu_b - f_b * (nu_b - nu_a) / (f_b - f_a);
       // If the point is too close from one of the current extremes,
       // pick the median instead, perfoming an iteration of the
       // regular bisection method.
-      if ((nu_new < nu_a * 1.1) || (nu_b / 1.1 < nu_new))
+      if ((nu_new < (nu_a * 1.2)) || ((nu_b / 1.2) < nu_new))
         {
           nu_new = (nu_a + nu_b) / 2.0 ;
         }
       
       // Calculate new ||delta(nu)||
-      double f_new = length(nu_min + nu_new);
+      f_new = length.calculate(nu_min + nu_new);
       
       // Stop loop if we reached a good result.
       if (fabs(f_new) < rho_tol)
