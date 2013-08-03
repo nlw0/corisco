@@ -10,6 +10,7 @@ setup(
     entry_points={
         "console_scripts": [
             "sqp_plot_root = tools.sqp_plot_root:main",
+            "sqp_plot_filter = tools.sqp_plot_filter:main",
         ]
     },
 
