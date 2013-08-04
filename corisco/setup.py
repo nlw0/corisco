@@ -1,4 +1,6 @@
 from setuptools import setup
+from distutils.extension import Extension
+from Cython.Distutils import build_ext
 
 setup(
     name="corisco",
@@ -6,7 +8,7 @@ setup(
     packages=["corisco"],
     entry_points={
         "console_scripts": [
-            "corisco_xxx = tools.corisco_xxx:main",
+            "corisco_process = corisco.tools.corisco_process:main",
         ]
     },
 
@@ -17,4 +19,13 @@ setup(
     install_requires=[
         'filtersqp'
     ],
+
+    cmdclass = {'build_ext': build_ext},
+    ext_modules=[Extension("corisco.corisco_aux",
+                           ["corisco/corisco_aux.pyx"],
+                           include_dirs=['/usr/lib/python2.7/site-packages/numpy/core/include/'],
+                           extra_objects=['corisco/corisco_aux_external.o'],
+                           libraries=['m','blas'])],
+
 )
+

@@ -1,7 +1,7 @@
 from attest import TestBase, test, Assert
 
 from itertools import product
-from numpy import array
+from numpy import array, ones
 
 from filtersqp.trust_rootfind import find_step_size, calculate_distance
 
@@ -20,7 +20,8 @@ class Rootfind(TestBase):
         L_rho = [1e-2, 1e-1, 1e0, 1e1]
         L_tol = [1e-3, 1e-5, 1e-10, 1e-14]
 
-        for alpha, lam, rho, tol in product(L_alpha, L_lam, L_rho, L_tol):
+        for alpha_r, lam, rho, tol in product(L_alpha, L_lam, L_rho, L_tol):
+            alpha = ones(len(lam)) * alpha_r
             lam = array(lam)
             tol = rho * tol
             if min(lam) > 0:

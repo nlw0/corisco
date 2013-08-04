@@ -36,7 +36,7 @@ def svd_eig(M):
     lam = diag(dot(dot(sv.T, M), sv.T))
     return lam, sv
 
-def trust_region_step(G,g,rho,rho_tol):
+def trust_region_step(G, g, rho, rho_tol):
     Nv = g.shape #number of dimensions
 
     ## Eigen decomposition of the matrix.
@@ -101,15 +101,14 @@ def trust_region_step(G,g,rho,rho_tol):
                 # print db, mv
                 ## Solve to find the sum that touches the region border.
                 # print '----', rho, nd
-                delta = db + mv * np.sqrt((rho+rho_tol)**2 - nd**2)
+                delta = db + mv * np.sqrt((rho + rho_tol) ** 2 - nd ** 2)
                 # print "Return some crazy vector", delta
                 return delta
         #     print "saddle out", nd, rho
         # print 'case 2'
 
     ##################################################################
-    ## The solution is in the surface of the sphere, so we must
-    ## perform an iterative root-finding procedure (secant method) to
+    ## Perform an iterative root-finding procedure (secant method) to
     ## find nu.
     nu_opt = find_step_size(alpha, lam, rho, rho_tol)
 
@@ -156,7 +155,7 @@ def SQP_step(x, lam, rho, filt,
     m = dot(Z,g + dot(dot(G,Y.T)[:,0],b))
     
     ## Find the restricted step using a trust-region solver.
-    y = trust_region_step(M,m,rho,rho*1e-1)
+    y = trust_region_step(M, m, rho, rho * 1e-1)
     if y.shape[0]==1:
         y = np.r_[[y]]
         delta_null = dot(y.T, Z)[0]

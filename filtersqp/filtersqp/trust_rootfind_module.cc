@@ -6,14 +6,14 @@
 
 // Stores the model parameters, and calculates a step size for different nu values.
 class LengthCalculator{
-  double alpha;
   npy_int Nlam;
   double* lam;
+  double* alpha;
   double rho;
 
 public:
-  LengthCalculator(double _alpha, npy_int _Nlam, double* _lam, double _rho):
-    alpha(_alpha), Nlam(_Nlam), lam(_lam), rho(_rho)
+  LengthCalculator(npy_int _Nlam, double* _alpha, double* _lam, double _rho):
+    Nlam(_Nlam), lam(_lam), alpha(_alpha), rho(_rho)
   { }
 
   double calculate(double nu)
@@ -23,7 +23,7 @@ public:
     double y;
     for (i = 0; i < this->Nlam; ++i)
       {
-        y = this->alpha / ((this->lam)[i] + nu);
+        y = (this->alpha)[i] / ((this->lam)[i] + nu);
         output += y * y;
       }
     output = sqrt(output) - this->rho;
@@ -34,20 +34,21 @@ public:
 
 static PyObject * length_wrapper(PyObject *self, PyObject *args)
 {
-  double alpha;
-  double nu;
+  PyArrayObject *alpha_obj;
   PyArrayObject *lam_obj;
+  double nu;
 
-  if (!PyArg_ParseTuple(args, "dO!d",
-                        &alpha,
+  if (!PyArg_ParseTuple(args, "O!O!d",
+                        &PyArray_Type, &alpha_obj,
                         &PyArray_Type, &lam_obj,
                         &nu))
     return NULL;
 
   double *lam = (double*)lam_obj->data;
+  double *alpha = (double*)alpha_obj->data;
   npy_int Nlam = lam_obj->dimensions[0];
 
-  LengthCalculator length(alpha, Nlam, lam, 0.0);
+  LengthCalculator length(Nlam, alpha, lam, 0.0);
 
   double output = length.calculate(nu);
 
@@ -57,16 +58,17 @@ static PyObject * length_wrapper(PyObject *self, PyObject *args)
 
 static PyObject * find_step_size(PyObject *self, PyObject *args)
 {
-  double alpha;
+  PyArrayObject *alpha_obj;
   PyArrayObject *lam_obj;
   double rho, rho_tol;
 
-  if (!PyArg_ParseTuple(args, "dO!dd",
-                        &alpha,
+  if (!PyArg_ParseTuple(args, "O!O!dd",
+                        &PyArray_Type, &alpha_obj,
                         &PyArray_Type, &lam_obj,
                         &rho, &rho_tol))
     return NULL;
 
+  double *alpha = (double*)alpha_obj->data;
   double *lam = (double*)lam_obj->data;
   npy_int Nlam = lam_obj->dimensions[0];
 
@@ -101,8 +103,8 @@ static PyObject * find_step_size(PyObject *self, PyObject *args)
       nu_b = 2.0;
     }
 
-  LengthCalculator length(alpha, Nlam, lam, rho);
-  LengthCalculator length2(alpha, Nlam, lam, 0.0);
+  LengthCalculator length(Nlam, alpha, lam, rho);
+  LengthCalculator length2(Nlam, alpha, lam, 0.0);
 
   double nu_new, f_new;
 

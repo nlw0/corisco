@@ -9,8 +9,8 @@ setup(
     packages=["filtersqp"],
     entry_points={
         "console_scripts": [
-            "sqp_plot_root = tools.sqp_plot_root:main",
-            "sqp_plot_filter = tools.sqp_plot_filter:main",
+            "sqp_plot_root = filtersqp.tools.sqp_plot_root:main",
+            "sqp_plot_filter = filtersqp.tools.sqp_plot_filter:main",
         ]
     },
 
