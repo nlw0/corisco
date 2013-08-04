@@ -27,52 +27,14 @@
 import numpy as np
 from numpy import *
 from numpy.linalg import *
-import scipy.optimize
 
-import cProfile
-
+from filtersqp.trust_rootfind import find_step_size, calculate_distance
 from fletcherfilter import FletcherFilter
 
 def svd_eig(M):
     su, ss, sv = np.linalg.svd(np.dot(M.T, M))
     lam = np.diag(np.dot(np.dot(sv.T, M), sv.T))
     return lam, sv
-
-def bisection_method(nu_min, nu_a, nu_b, myf, rho_tol):
-    ki = 0
-    while True:
-        f_a = myf(nu_min+nu_a)
-        f_b = myf(nu_min+nu_b)
-        #print array([nu_min, nu_a,nu_b, f_a, f_b])
-        assert not np.isinf(nu_a) and not np.isinf(nu_b)
-        if f_a>0 and f_b>0 or f_a<0 and f_b<0:
-            if np.abs(f_a)>np.abs(f_b):
-                nu_a, nu_b = nu_b, nu_b*10
-            else: #if np.abs(f_a)<np.abs(f_b):
-                nu_a, nu_b = nu_a/10., nu_a
-            continue
-        assert f_a>0 and f_b<0
-
-        ## New point position.
-        nu_new = nu_b - f_b * (nu_b - nu_a) / (f_b - f_a)
-        if nu_new < nu_a*1.1 or nu_b * .91 < nu_new:
-            nu_new = (nu_a + nu_b)*.5
-        ## Calculate new ||delta(nu)||.
-        f_new = myf(nu_min+nu_new)
-
-        ## Stop loop if we reached a good result.
-        if np.abs(f_new) < rho_tol:
-            return nu_min+nu_new
-        else:
-            # The two current points.
-            if f_new > 0:
-                nu_a, f_a = nu_new, f_new
-            else:
-                nu_b, f_b = nu_new, f_new
-        ## Test number of iterations.
-        ki += 1
-        if ki > 100:
-            raise Exception('Too many secant method iterations.')
 
 def trust_region_step(G,g,rho,rho_tol):
     Nv = g.shape #number of dimensions
@@ -115,13 +77,6 @@ def trust_region_step(G,g,rho,rho_tol):
         ## Newton step is feasible, so we just return it.
             delta = np.dot(v,beta)
             return delta
-        ## If the Newton step is outside the feasible region we
-        ## must look for a positive nu that satifies the radius
-        ## limit.  Here we set the initial parameters for the
-        ## root-finding procedure to find nu.
-        nu_min = 0.
-        nu_a = 0.
-        nu_b = ln
 
     if ln <= 0:
         ## This may be case iii or ii. Test alpha.
@@ -130,49 +85,34 @@ def trust_region_step(G,g,rho,rho_tol):
             ## This is case iii. First we test if the saddle point is
             ## outside the trust region, in which case we perofrm the
             ## normal calculation in the end. If not, we calculate the
-            ## saddle point position, and return a vector stemming frmo it
-            ## up to the trust region boundary.
+            ## saddle point position, and return a vector stemming
+            ## from it up to the trust region boundary.
             beta = np.zeros(Nv)
             if lok.shape[0]>0:
                 beta[lok] = -alpha[lok] / (lam[lok] - ln)
             nd = np.linalg.norm(beta) ## this is h_bar from Fletcher's book, pg. 104
             if nd <= rho + rho_tol:
                 # print "saddle in"
-                ## If norm is smaller than radius, this is "case iii" with
-                ## hk>=h_bar. We return the newton step plus a vector in the
-                ## direction of the smallest eigenvalue...
+                ## If norm is smaller than radius, this is "case iii"
+                ## with hk>=h_bar. We return the newton step plus a
+                ## vector in the direction of the smallest eigenvalue.
                 db = np.dot(v,beta) ## delta_bar from Fletcher's book
                 mv = v[:,lni[0]]
                 # print db, mv
                 ## Solve to find the sum that touches the region border.
                 # print '----', rho, nd
                 delta = db + mv * np.sqrt((rho+rho_tol)**2 - nd**2)
-                # print "Retornando um vetor maluco", delta
+                # print "Return some crazy vector", delta
                 return delta
         #     print "saddle out", nd, rho
         # print 'case 2'
-        ## Here we are either in case ii, or in case iii with an
-        ## infesible saddle-point. So we must look for a nu larger
-        ## than -ln that satifies the radius limit.
-        #nu_a = -ln * (1+1e-2) if ln<0 else 1e-3
-        nu_min = -ln
-        nu_a = nu_min * 1e-4 if nu_min > 0 else nu_min + 1e-3
-        nu_b = 2*nu_min if nu_min > 0 else 1e-2
-
-
 
     ##################################################################
     ## The solution is in the surface of the sphere, so we must
     ## perform an iterative root-finding procedure (secant method) to
     ## find nu.
-    nu_min = -ln if ln<0 else 0
-    # nu_min = nu_a if ln != 0 else 0
-    myf = lambda x: np.linalg.norm(-alpha / (lam + x)) - rho
-    #myf = lambda x: (1+exp(-(norm(-alpha / (lam + x)) - rho)))**-1-.5
+    nu_opt = find_step_size(alpha, lam, rho, rho_tol)
 
-    ## Start the secant method loop.
-    nu_opt = bisection_method(nu_min,nu_a,nu_b,myf,rho_tol)
-    
     beta = -alpha / (lam + nu_opt)
     delta = np.dot(v,beta)
     return delta
@@ -180,9 +120,7 @@ def trust_region_step(G,g,rho,rho_tol):
 def SQP_step(x, lam, rho, filt,
              cons_val, cons_grad, cons_hess,
              func_val, func_grad, func_hess, func_args):
-    '''LM iteration constrained over the three-sphere'''
-    ## Number of variables
-    Nv = x.shape[0]
+    '''One step from the trust-region LM SQP algorithm.'''
 
     ## Calculate the local gradient and Hessian matrix
     g = func_grad(x,*func_args)

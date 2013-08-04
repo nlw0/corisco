@@ -33,6 +33,7 @@ class Rootfind(TestBase):
             print 'nu', nu, 'f(nu)', f_nu
 
             abs(rho - calculate_distance(alpha, lam, nu)) < Assert(tol)
+            #abs(rho - calculate_distance(alpha, lam, nu)) == 0
 
 if __name__ == '__main__':
     from attest import Tests
