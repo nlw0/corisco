@@ -25,15 +25,15 @@
 
 
 import numpy as np
-from numpy import *
-from numpy.linalg import *
+from numpy import array, copy, diag, dot, nonzero, r_, c_, zeros
+from numpy.linalg import norm
 
 from filtersqp.trust_rootfind import find_step_size, calculate_distance
 from fletcherfilter import FletcherFilter
 
 def svd_eig(M):
-    su, ss, sv = np.linalg.svd(np.dot(M.T, M))
-    lam = np.diag(np.dot(np.dot(sv.T, M), sv.T))
+    su, ss, sv = np.linalg.svd(dot(M.T, M))
+    lam = diag(dot(dot(sv.T, M), sv.T))
     return lam, sv
 
 def trust_region_step(G,g,rho,rho_tol):
@@ -41,15 +41,15 @@ def trust_region_step(G,g,rho,rho_tol):
 
     ## Eigen decomposition of the matrix.
     lam, v = np.linalg.eig(G)
-    ## lam, v = svd_eig(G) ## This is WRONG
+    ## lam, v = svd_eig(G) ## This is WRONG! (?)
     # print '==lam',lam
     # print '==v',v
     ln = lam.min()
-    lni = np.nonzero(lam==ln)[0]
-    lok = np.nonzero(1-(lam==ln))[0]
+    lni = nonzero(lam==ln)[0]
+    lok = nonzero(1-(lam==ln))[0]
 
     ## Gradient projectin on the eigenvectors.
-    alpha = np.dot(v.T, g)
+    alpha = dot(v.T, g)
     # print 'New QP problem:'
     # print 'lam:', lam
     # print 'rho:', rho
@@ -59,8 +59,8 @@ def trust_region_step(G,g,rho,rho_tol):
     ## A plane. Just use the gradient...
     if (np.abs(lam)<1e-10).all():
         # print 'case 0'
-        if np.linalg.norm(g) > 0:
-            return -rho * g/np.linalg.norm(g)
+        if norm(g) > 0:
+            return -rho * g / norm(g)
         else:
             #print "joga pro santo"
             return rho * v[0]
@@ -71,11 +71,11 @@ def trust_region_step(G,g,rho,rho_tol):
         ## Matrix is positive definite.
         ## Test norm for the nu=0 case.
         beta = -alpha / lam
-        nd = np.linalg.norm(beta)
+        nd = norm(beta)
         if nd <= rho + rho_tol:
         ## If norm is smaller than radius, this is "case i". The
         ## Newton step is feasible, so we just return it.
-            delta = np.dot(v,beta)
+            delta = dot(v,beta)
             return delta
 
     if ln <= 0:
@@ -87,16 +87,16 @@ def trust_region_step(G,g,rho,rho_tol):
             ## normal calculation in the end. If not, we calculate the
             ## saddle point position, and return a vector stemming
             ## from it up to the trust region boundary.
-            beta = np.zeros(Nv)
+            beta = zeros(Nv)
             if lok.shape[0]>0:
                 beta[lok] = -alpha[lok] / (lam[lok] - ln)
-            nd = np.linalg.norm(beta) ## this is h_bar from Fletcher's book, pg. 104
+            nd = norm(beta) ## this is h_bar from Fletcher's book, pg. 104
             if nd <= rho + rho_tol:
                 # print "saddle in"
                 ## If norm is smaller than radius, this is "case iii"
                 ## with hk>=h_bar. We return the newton step plus a
                 ## vector in the direction of the smallest eigenvalue.
-                db = np.dot(v,beta) ## delta_bar from Fletcher's book
+                db = dot(v,beta) ## delta_bar from Fletcher's book
                 mv = v[:,lni[0]]
                 # print db, mv
                 ## Solve to find the sum that touches the region border.
@@ -114,7 +114,7 @@ def trust_region_step(G,g,rho,rho_tol):
     nu_opt = find_step_size(alpha, lam, rho, rho_tol)
 
     beta = -alpha / (lam + nu_opt)
-    delta = np.dot(v,beta)
+    delta = dot(v,beta)
     return delta
 
 def SQP_step(x, lam, rho, filt,
@@ -151,14 +151,14 @@ def SQP_step(x, lam, rho, filt,
     ## Find out the Hessian of the Lagrangian
     W = G - lam * Gcon # The constraint hessian (con from "cone")
     ## Calculate the reduced Hessian
-    M = np.dot(np.dot(Z,W),Z.T)
+    M = dot(dot(Z,W),Z.T)
     ## Calculate the reduced gradient
-    m = np.dot(Z,g + np.dot(np.dot(G,Y.T)[:,0],b))
+    m = dot(Z,g + dot(dot(G,Y.T)[:,0],b))
     
     ## Find the restricted step using a trust-region solver.
     y = trust_region_step(M,m,rho,rho*1e-1)
     if y.shape[0]==1:
-        y = r_[[y]]
+        y = np.r_[[y]]
         delta_null = dot(y.T, Z)[0]
     else:
         delta_null = dot(y.T, Z)
@@ -170,12 +170,12 @@ def SQP_step(x, lam, rho, filt,
     #### Perform second-order correction (SOC).
     ## Calculate new estimate for c, and consequently b
     c_hat = c_x + dot(gcon,delta_null)\
-            + .5*dot(dot(delta_null,Gcon),delta_null)
+            + .5 * dot(dot(delta_null, Gcon), delta_null)
     b = -c_hat
     ## Repeat previous steps with new b, and consequently m, to find
     ## the displacement in the cosntraint null space.
-    m = dot(Z,g + dot(dot(G,Y.T)[:,0],b))
-    y = trust_region_step(M,m,rho,rho*1e-1)
+    m = dot(Z,g + dot(dot(G, Y.T)[:,0], b))
+    y = trust_region_step(M, m, rho, rho * 1e-1)
     if y.shape[0]==1:
         y = r_[[y]]
         delta_null = dot(y.T, Z)[0]
