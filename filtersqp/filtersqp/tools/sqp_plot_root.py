@@ -1,0 +1,45 @@
+#!/usr/bin/python2.7
+#coding: utf-8
+
+import argparse
+import code
+from pylab import *
+
+from filtersqp.trust_rootfind import find_step_size, calculate_distance
+
+def main():
+    parser = argparse.ArgumentParser(description='Test root-finding method to find step size in trust region optimization methods.')
+    parser.add_argument('--alpha', type=float)
+    parser.add_argument('--lam', type=float, nargs='+')
+    parser.add_argument('--rho', type=float)
+
+    args = parser.parse_args()
+
+    alpha = args.alpha
+    lam = array(args.lam)
+    rho = args.rho
+
+    print 'α:', alpha
+    print 'λ:', lam
+    print 'ρ:', rho
+
+    print "f(0)=", calculate_distance(alpha, lam, 0)
+
+
+    nu = find_step_size(alpha, lam, rho, 1e-14)
+    print 'nu=', nu
+    print "f(nu)-rho=", calculate_distance(alpha, lam, nu) - rho
+
+    rez=0.01
+
+    xx = mgrid[nu/100.0:nu*100:rez]
+    yy = array([calculate_distance(alpha, lam, x) for x in xx])
+
+    ion()
+    plot(xx, yy)
+    plot([nu/10.0, nu*10.0], [rho, rho], 'r-')
+    plot(nu, calculate_distance(alpha, lam, nu), 'rd')
+
+    grid()
+
+    code.interact()

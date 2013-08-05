@@ -8,7 +8,7 @@ setup(
     packages=["corisco"],
     entry_points={
         "console_scripts": [
-            "corisco_process = corisco.tools.corisco_process:main",
+            "corisco = corisco.tools.corisco_estimate_orientation:main",
         ]
     },
 

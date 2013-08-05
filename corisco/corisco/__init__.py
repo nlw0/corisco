@@ -18,12 +18,16 @@
 
 import sys
 import numpy as np
+from numpy import array
 import scipy
 import scipy.ndimage
 
 import corisco_aux
 
 from quaternion import Quat
+from filters import DERIVATIVE_FILTERS
+
+import Image
 
 ## Colors used for plotting different labels (directions)
 dir_colors=['#ea6949', '#51c373', '#a370ff', '#444444']
@@ -51,21 +55,11 @@ def aligned_quaternion(v):
       R = R*Quat(1,-1,-1,1).normalize()
   return R.inverse()
 
-class Picture:
-  '''For perspective transform, "pinhole" cameras.'''
+class Picture(object):
 
-  def __init__(self, frame, i_param):
+  def __init__(self, image_set_config, frame_number, smooth_factor=None):
 
-    try:
-      # self.frame = scipy.array( pylab.flipud(pylab.imread(filename)), dtype=float)
-      self.frame = frame
-    except IOError:
-      print "SOCORRO!, File not found"
-      print filename
-      self=None
-      raise Exception('File not found')
-
-    self.grid_inc = 1 ## The increment when using a grid...
+    self.read_image(image_set_config, frame_number, smooth_factor=smooth_factor)
 
     ## Image dimensions
     self.Iheight, self.Iwidth = self.frame.shape[:2]
@@ -74,68 +68,100 @@ class Picture:
     self.new_labels = []
     self.rect_edgels = []
 
-    self.i_param = i_param
-    
+    self.read_intrinsic_parameters(image_set_config)
+
     ## Focal distance (default)
-    self.fd = i_param[1]
+    self.fd = self.i_param[1]
 
     ## Principal point
-    self.middlex = i_param[2]
-    self.middley = i_param[3]
+    self.middlex = self.i_param[2]
+    self.middley = self.i_param[3]
 
+  def read_image(self, isconf, frame_number, smooth_factor=None):
+    filename = (isconf['root_directory'] +
+                '/frames/' +
+                isconf['filename_format']) % frame_number
+    ## Open image, convert to RGB floating point, no alpha.
+    self.frame = array(Image.open(filename).convert('RGB'), dtype=float)[:,:,:3]
 
+  def smooth(self, smooth_factor):
+    # Apply Gaussian smoothing to image.
+    for c in range(3):
+      self.frame[:,:,c] = scipy.ndimage.gaussian_filter(self.frame[:,:,c], smooth_factor)
 
-  #############################################################################
-  ## Call the edgel extraction procedure.
-  def extract_edgels(self, gstep, glim, method=0):
-    if method == 0:
-      self.derivative_filter = self.sobel_filter
-    elif method == 1:
-      self.derivative_filter = self.scharr_filter
-    elif method == 2:
-      self.derivative_filter = self.shigeru_filter
-    elif method == 3:
-      self.derivative_filter = self.zernike_V11_5x5
-      self.laplacean_filter = self.zernike_V20_5x5
-    elif method == 4:
-      self.derivative_filter = self.zernike_V11_7x7
-      self.laplacean_filter = self.zernike_V20_7x7
-    elif method == 5:
-      self.derivative_filter = self.zernike_V11_9x9
-      self.laplacean_filter = self.zernike_V20_9x9
+  def read_intrinsic_parameters(self, isconf):
+    if not 'projection_model' in isconf:
+      raise Exception("Camera model not specified.")
     else:
-      raise 'Invalid edgel extraction method.'
-      
+      model = isconf['projection_model']
+
+    if not (model in ['pinhole', 'harris', 'polar_equidistant', 'cylindrical_equidistant']):
+      raise NotImplementedError
+
+    elif model == 'pinhole':
+      focal_distance = isconf['focal_distance']
+      pp = isconf['principal_point']
+      self.i_param = array([0.0, focal_distance, pp[0], pp[1]])
+    elif model == 'harris':
+      focal_distance = isconf['focal_distance']
+      pp = isconf['principal_point']
+      distortion = isconf['distortion_coefficient']
+      self.i_param = array([2.0, focal_distance, pp[0], pp[1], distortion])
+    elif model == 'polar_equidistant':
+      focal_distance = isconf['focal_distance']
+      pp = isconf['principal_point']
+      self.i_param = array([3.0, focal_distance, pp[0], pp[1]])
+    elif model == 'cylindrical_equidistant':
+      focal_distance = isconf['focal_distance']
+      pp = isconf['principal_point']
+      self.i_param = array([4.0, focal_distance, pp[0], pp[1]])
+
+  def extract_edgels(self, gstep, glim, method):
+    '''
+    Extracts edgels from the image.
+
+    Inputs:
+      gstep - The grid spacing, or distance between liens and columns form the grid.
+      glim - The minimum threshold value for the edge detector.
+      method - selects between different gradient filters and edge detection methods:
+        0. Sobel filter
+        1. Scharr filter
+        2. Shigeru filter
+        3. Zernike moments, 5x5 window
+        4. Zernike moments, 7x7 window
+        5. Zernike moments, 9x9 window
+
+    Outcomes:
+      The extracted edgels are stored in self.edgels. self.labels is also initialized.
+
+    '''
+
+    try:
+      self.derivative_filter, self.laplacean_filter = DERIVATIVE_FILTERS[method]
+    except IndexError:
+      raise Exception('Invalid edgel extraction method.')
       
     ## Calculate gradients
-    self.gradx = scipy.zeros(self.frame.shape, dtype=np.float32)
-    self.grady = scipy.zeros(self.frame.shape, dtype=np.float32)
+    gradx = scipy.zeros(self.frame.shape, dtype=np.float32)
+    grady = scipy.zeros(self.frame.shape, dtype=np.float32)
     for c in range(3):
-      scipy.ndimage.convolve(self.frame[:,:,c], self.derivative_filter,  self.gradx[:,:,c] )
-      scipy.ndimage.convolve(self.frame[:,:,c], self.derivative_filter.T, self.grady[:,:,c] )
+      scipy.ndimage.convolve(self.frame[:,:,c], self.derivative_filter,  gradx[:,:,c] )
+      scipy.ndimage.convolve(self.frame[:,:,c], self.derivative_filter.T, grady[:,:,c] )
 
     if method >= 3 and method <= 5:
       ## Calculate laplacean
-      self.A20 = scipy.zeros(self.frame.shape, dtype=np.float32)
+      A20 = scipy.zeros(self.frame.shape, dtype=np.float32)
       for c in range(3):
-        scipy.ndimage.convolve(self.frame[:,:,c], self.laplacean_filter, self.A20[:,:,c] )
+        scipy.ndimage.convolve(self.frame[:,:,c], self.laplacean_filter, A20[:,:,c] )
 
     ## Run edgel extraction procedure using the calculated gradients
-    if method >= 0 and method < 3:
-      self.edgels = corisco_aux.edgel_extractor(gstep, glim, self.gradx, self.grady)
-    elif method >= 3 and method <= 5:
-      self.edgels = corisco_aux.edgel_extractor_zernike(gstep, glim, self.gradx,
-                                                   self.grady, self.A20)
+    if method[:7] == 'zernike':
+      self.edgels = corisco_aux.edgel_extractor_zernike(gstep, glim, gradx, grady, A20)
     else:
-      raise 'Invalid edgel extraction method.'
-
-    ## Store number of edgels
-    self.Ned = self.edgels.shape[0]
+      self.edgels = corisco_aux.edgel_extractor(gstep, glim, gradx, grady)
 
     ## Array that contains the label of each edgel
     self.labels = np.ascontiguousarray( np.zeros(len(self.edgels), dtype=np.int32) )
-  ##
-  #############################################################################   
 
   ##################################################################
   ## Calculate initial estimate by picking random edgels and
@@ -147,20 +173,20 @@ class Picture:
   ## pretty much the same that is used in RANSAC or un
   ## J-linkage. But it's the same final target function that we are
   ## calculating at each point, not something else.
-  def random_search(self, initial_trials, fp):
-    ## Default M-estimator uses Tukey with 0.15 error variance.
+  def random_search(self, initial_trials, error_function_parameters):
+    last_edgel = len(self.edgels) - 1
 
     bestv = np.Inf ## Smallest value found
-    for k in range(initial_trials):
+    for k in xrange(initial_trials):
       ## Pick indices of the reference normals. Re-sample until we
       ## get a list of three different values.
-      pk_a = np.random.random_integers(0,self.Ned-1)
-      pk_b = np.random.random_integers(0,self.Ned-1)
+      pk_a = np.random.random_integers(0, last_edgel)
+      pk_b = np.random.random_integers(0, last_edgel)
       while pk_b == pk_a:
-          pk_b = np.random.random_integers(0,self.Ned-1)
-      pk_c = np.random.random_integers(0,self.Ned-1)
+          pk_b = np.random.random_integers(0, last_edgel)
+      pk_c = np.random.random_integers(0, last_edgel)
       while pk_c == pk_a or pk_c == pk_b:
-          pk_c = np.random.random_integers(0,self.Ned-1)
+          pk_c = np.random.random_integers(0, last_edgel)
 
       ## Get the normals with the first two chosen indices, and
       ## calculate a rotation matrix that has the x axis aligned to
@@ -170,7 +196,6 @@ class Picture:
       vp1 = np.cross(n_a, n_b)
       vp1 = vp1 * (vp1**2).sum()**-0.5
       q1 = aligned_quaternion(vp1)
-      # q1 = aligned_quaternion_from_dirs(n_a, n_b)
 
       ## Pick a new random third norm, and find the rotation to align
       ## the y direction to this edgel.
@@ -182,46 +207,29 @@ class Picture:
       ## Find the value of the target function for this sampled
       ## orientation.
       # newv = camori_angle_error(
-      #   q2.q, self.edgels, self.i_param, fp)
+      #   q2.q, self.edgels, self.i_param, error_function_parameters)
       newv = corisco_aux.angle_error_with_jacobians(
-       q2.q, self.edgels, self.jacobians, fp)
+       q2.q, self.edgels, self.jacobians, error_function_parameters)
 
       ## If the value is the best yet, store solution.
-      if newv <= bestv :
+      if newv <= bestv:
         bestv = newv
         bpk_a = pk_a
         bpk_b = pk_b
         bpk_c = pk_c
         qopt = q2
-    return qopt, bpk_a, bpk_b, bpk_c
-  ##
-  #############################################################################
+    return qopt
 
-  #############################################################################
-  ## Plotting methods
-  ##
+  def calculate_edgel_normals(self):
+    self.normals = corisco_aux.calculate_normals(self.edgels, self.i_param)
+
+  def calculate_edgel_jacobians(self):
+    self.jacobians = corisco_aux.calculate_all_jacobians(self.edgels, self.i_param)
+
   def plot_edgels(self, ax, scale=1):
-    # ax.plot(self.edgels[:,0], self.edgels[:,1], 'r+', mew=1.0)
-
-    # ax.plot((self.edgels[:,[0,0]] - scale*np.c_[-self.edgels[:,3], self.edgels[:,3]]).T,
-    #         (self.edgels[:,[1,1]] + scale*np.c_[-self.edgels[:,2], self.edgels[:,2]]).T,
-    #         'r-')
-
-    # ax.plot((self.edgels[:,[0,0]] - scale*np.c_[-self.edgels[:,3], self.edgels[:,3]]).T,
-    #         (self.edgels[:,[1,1]] + scale*np.c_[-self.edgels[:,2], self.edgels[:,2]]).T,
-    #         '-',lw=3.0,alpha=0.25,color='#ff0000')
     ax.plot((self.edgels[:,[0,0]] - scale*np.c_[-self.edgels[:,3], self.edgels[:,3]]).T,
             (self.edgels[:,[1,1]] + scale*np.c_[-self.edgels[:,2], self.edgels[:,2]]).T,
             '-',lw=1.0,alpha=1.0,color='#ff0000')
-    
-    # ax.plot((self.edgels[:,[0,0]] - scale*np.c_[-self.edgels[:,3], self.edgels[:,3]]).T,
-    #         (self.edgels[:,[1,1]] + scale*np.c_[-self.edgels[:,2], self.edgels[:,2]]).T,
-    #         '-',lw=3.0,alpha=0.4,color='#aaccff')
-    #         # '-',lw=3.0,alpha=0.7,color='#000044')
-    # ax.plot((self.edgels[:,[0,0]] - scale*np.c_[-self.edgels[:,3], self.edgels[:,3]]).T,
-    #         (self.edgels[:,[1,1]] + scale*np.c_[-self.edgels[:,2], self.edgels[:,2]]).T,
-    #         '-',lw=1.0,alpha=1.0,color='#ff8844')
-    #         # '-',lw=1.0,alpha=1.0,color='#ff8844')
 
   def plot_edgels_lab(self, ax, scale=1):
     for lab in range(4):
@@ -254,107 +262,6 @@ class Picture:
         LL[lab,num,:] = np.r_[k+vx*qq, j+vy*qq]
     for lab in range(3):
       ax.plot( LL[lab,:,:2].T, LL[lab,:,2:].T, dir_colors[lab], lw=3)
-  ##
-  #############################################################################
-
-  def calculate_edgel_normals(self):
-    self.normals = corisco_aux.calculate_normals(self.edgels, self.i_param)
-
-  def calculate_edgel_jacobians(self):
-    self.jacobians = corisco_aux.calculate_all_jacobians(self.edgels, self.i_param)
-
-  ## Directional derivative filters
-  sobel_filter=scipy.array([
-      [-1, 0, 1],
-      [-2, 0, 2],
-      [-1, 0, 1] ])/8.0
-
-  scharr_filter=scipy.array([
-      [ -3, 0, 3],
-      [-10, 0,10],
-      [ -3, 0, 3] ])/32.0
-
-  ## Directional derivative filter
-  shigeru_filter=-scipy.array([
-      [ -0.003776, -0.010199, 0., 0.010199, 0.003776 ],
-      [ -0.026786, -0.070844, 0., 0.070844, 0.026786 ],
-      [ -0.046548, -0.122572, 0., 0.122572, 0.046548 ],
-      [ -0.026786, -0.070844, 0., 0.070844, 0.026786 ],
-      [ -0.003776, -0.010199, 0., 0.010199, 0.003776 ]
-      ])
-
-  zernike_V11_5x5 = np.array([
-      [ -146.67,  -468.68,     0.  ,   468.68,   146.67],
-      [ -933.33,  -640.  ,     0.  ,   640.  ,   933.33],
-      [-1253.33,  -640.  ,     0.  ,   640.  ,  1253.33],
-      [ -933.33,  -640.  ,     0.  ,   640.  ,   933.33],
-      [ -146.67,  -468.68,     0.  ,   468.68,   146.67]])/19368.05
-
-
-  zernike_V11_7x7 = np.array([
-      [   0.  , -150.46, -190.2 ,    0.  ,  190.2 ,  150.46,    0.  ],
-      [-224.25, -465.74, -233.24,    0.  ,  233.24,  465.74,  224.25],
-      [-573.37, -466.47, -233.24,    0.  ,  233.24,  466.47,  573.37],
-      [-689.99, -466.47, -233.24,    0.  ,  233.24,  466.47,  689.99],
-      [-573.37, -466.47, -233.24,    0.  ,  233.24,  466.47,  573.37],
-      [-224.25, -465.74, -233.24,    0.  ,  233.24,  465.74,  224.25],
-      [   0.  , -150.46, -190.2 ,    0.  ,  190.2 ,  150.46,    0.  ]])/27314.0
-
-
-  zernike_V11_9x9 = np.array([[ 0., -11.73, -109.17, -94.2, 0., 94.2, 109.17,
-                             11.73, 0. ],
-                           [ -16.09, -253.68, -219.48, -109.74, 0., 109.74, 219.48,
-                              253.68, 16.09],
-                           [-214.91, -329.22, -219.48, -109.74, 0., 109.74, 219.48,
-                             329.22, 214.91],
-                           [-379.52, -329.22, -219.48, -109.74, 0., 109.74, 219.48,
-                             329.22, 379.52],
-                           [-434.39, -329.22, -219.48, -109.74, 0., 109.74, 219.48,
-                             329.22, 434.39],
-                           [-379.52, -329.22, -219.48, -109.74, 0., 109.74, 219.48,
-                             329.22, 379.52],
-                           [-214.91, -329.22, -219.48, -109.74, 0., 109.74, 219.48,
-                             329.22, 214.91],
-                           [ -16.09, -253.68, -219.48, -109.74, 0., 109.74, 219.48,
-                              253.68, 16.09],
-                           [ 0., -11.73, -109.17, -94.2, 0., 94.2, 109.17,
-                             11.73, 0. ]]) / 35236.70736
-
-  zernike_V20_5x5 = 2.5 * np.array([
-      [  176.  ,   595.07,   505.86,   595.07,   176.  ],
-      [  595.07,  -490.67, -1002.67,  -490.67,   595.07],
-      [  505.86, -1002.67, -1514.67, -1002.67,   505.86],
-      [  595.07,  -490.67, -1002.67,  -490.67,   595.07],
-      [  176.  ,   595.07,   505.86,   595.07,   176.  ]])/19368.05
-
-
-  zernike_V20_7x7 = 3.5 * np.array([
-      [   0.  ,  224.66,  393.73,  395.52,  393.73,  224.66,    0.  ],
-      [ 224.66,  271.06, -127.72, -261.  , -127.72,  271.06,  224.66],
-      [ 393.73, -127.72, -527.56, -660.84, -527.56, -127.72,  393.73],
-      [ 395.52, -261.  , -660.84, -794.11, -660.84, -261.  ,  395.52],
-      [ 393.73, -127.72, -527.56, -660.84, -527.56, -127.72,  393.73],
-      [ 224.66,  271.06, -127.72, -261.  , -127.72,  271.06,  224.66],
-      [   0.  ,  224.66,  393.73,  395.52,  393.73,  224.66,    0.  ]])/27314.0
-
-  zernike_V20_9x9 = 4.5 * np.array([[ 0. , 19.03, 200.93, 278.78, 290.06, 278.78, 200.93,
-                             19.03, 0. ],
-                           [ 19.03, 274.72, 148.35, 2.03, -46.74, 2.03, 148.35,
-                             274.72, 19.03],
-                           [ 200.93, 148.35, -95.51, -241.83, -290.61, -241.83, -95.51,
-                             148.35, 200.93],
-                           [ 278.78, 2.03, -241.83, -388.15, -436.93, -388.15, -241.83,
-                             2.03, 278.78],
-                           [ 290.06, -46.74, -290.61, -436.93, -485.7 , -436.93, -290.61,
-                             -46.74, 290.06],
-                           [ 278.78, 2.03, -241.83, -388.15, -436.93, -388.15, -241.83,
-                             2.03, 278.78],
-                           [ 200.93, 148.35, -95.51, -241.83, -290.61, -241.83, -95.51,
-                             148.35, 200.93],
-                           [ 19.03, 274.72, 148.35, 2.03, -46.74, 2.03, 148.35,
-                             274.72, 19.03],
-                           [ 0. , 19.03, 200.93, 278.78, 290.06, 278.78, 200.93,
-                             19.03, 0. ]])/ 35236.70736
 
 ## Local variables:
 ## python-indent: 2
