@@ -110,7 +110,7 @@ static PyObject * find_step_size(PyObject *self, PyObject *args)
 
   // The body from our implementation of the "regula falsi", or double
   // false position method.
-  for(int ki=0; ki < 100; ++ki)
+  for(int ki=0; ki < 200; ++ki)
     {
       double f_a = length.calculate(nu_min + nu_a);
       double f_b = length.calculate(nu_min + nu_b);
