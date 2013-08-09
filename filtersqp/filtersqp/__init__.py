@@ -40,7 +40,13 @@ def trust_region_step(G, g, rho, rho_tol):
     Nv = g.shape #number of dimensions
 
     ## Eigen decomposition of the matrix.
-    lam, v = np.linalg.eig(G)
+    try:
+        lam, v = np.linalg.eig(G)
+    except:
+        print '*** ERROR, invalid Hessian matrix'
+        print G
+        print '***'
+        raise Exception
     ## lam, v = svd_eig(G) ## This is WRONG! (?)
     # print '==lam',lam
     # print '==v',v

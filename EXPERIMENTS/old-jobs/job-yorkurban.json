@@ -1,0 +1,57 @@
+{
+    "do_robust": 1,
+    "do_optimization": 1,
+    "do_decimation": 0,
+
+    "fp_robust": [3,1,0.15],
+    "fp_optimization": [3,1,0.15],
+
+    "grid_spacing": 4,
+    "gaussian_smoothing_factor": 0.0,
+    "edge_detection_method": 2,
+    "gradient_threshold": 20.0,
+
+    "decimator_method": 2,
+    "decimator_distance": 6.0,
+    "decimator_threshold": 0.05,
+    "decimator_lower": 2,
+
+    "initial_trials": 1000,
+
+    "initial_guesses": [
+        [0.0,0.0,0.0],
+        [-0.03, -0.30, -0.01], [-0.03, -0.30, 0.01],
+        [-0.03, -0.45, -0.01], [-0.03, -0.45, 0.01] ],
+
+    "optimization_tolerance": 1e-14,
+
+    "_projection_model": "harris",
+    "projection_model": "pinhole",
+
+    "principal_point": [307.55, 251.45],
+    "focal_distance":  674.92,
+    "_distortion_coefficient": -500.0,
+    "__principal_point": [311.396325, 243.85556544],
+    "__focal_distance":  671.553628,
+    "__distortion_coefficient": 0.0,
+    "__principal_point": [320.0, 240.0],
+    "__focal_distance":  671.553628,
+    "__distortion_coefficient": 0.0, 
+
+
+
+
+    "extraction_gain": 20.0,
+    "extraction_distance": 0.05,
+    "matching_gain": 10.0,
+    "matching_distance": 0.1,
+    "line_extraction_fraction": 10,
+    "line_extraction_fraction_match": 2,
+    "nearest_neighbors": 5,
+    "color_threshold": 3.3,
+
+    "first_frame": 0,
+    "last_frame": 101,
+    "root_directory": "/home/nwerneck/ciencia/DADOS/yorkurban",
+    "filename_format": "%08d.png"
+}

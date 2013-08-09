@@ -1,0 +1,9 @@
+{
+    "root_directory": "/home/nwerneck/ciencia/DADOS/apa09",
+    "filename_format": "%08d.jpg",
+
+    "projection_model": "harris",
+    "principal_point": [500, 336.0],
+    "focal_distance": 788.854413422,
+    "distortion_coefficient": -160.084085435
+}

@@ -141,9 +141,24 @@ def main():
 
     sqp_funcs = (val_c, grad_c, hess_c, val_f, grad_f, hess_f)
     args_f = (pic.edgels, pic.i_param, error_function_parameters)
-    filterSQPout = filtersqp.filterSQP(
-        qini.q, .0, 1e-3, sqp_funcs, args_f, delta_tol=optimization_tolerance
-        )
+    try:
+        filterSQPout = filtersqp.filterSQP(
+            qini.q, .0, 1e-3, sqp_funcs, args_f, delta_tol=optimization_tolerance
+            )
+    except:
+        print '*** Numerical error for input:'
+        print {'set': args.input_file,
+               'frame': args.frame_number,
+               'grid': {'size': gspc,
+                        'lim': glim,
+                        'method': gmethod
+                        },
+               'ransac_itr': ransac_iterations,
+               'smooth': args.smooth,
+               'optol': optimization_tolerance
+               }
+        raise SystemExit
+
     xo, err, sqp_iters,Llam,Lrho = filterSQPout
     qopt = Quat(xo)
 
@@ -154,23 +169,28 @@ def main():
     first_orientation_estimate = qini.canonical().q.tolist()
     final_orientation_estimate = qopt.canonical().q.tolist()
 
-    output_data = {'input': {'set': args.input_file,
-                             'frame': args.frame_number},
-                   'time': {'total': tt_total,
-                            'edgel': tt_edgel_extraction,
-                            'ransac': tt_initial_estimate,
-                            'sqp': tt_filtersqp},
-                   'Nedgels': pic.edgels.shape[0],
-                   'ransac_itr': ransac_iterations,
-                   'grid': {'size': gspc,
-                            'lim': glim,
-                            'method': gmethod},
-                   'sqp_itr': sqp_iters,
-                   'ransac_ori_est': first_orientation_estimate,
-                   'ori_est': final_orientation_estimate,
-                   'smooth': args.smooth,
-                   'optol': optimization_tolerance
-                   }
+    output_data = {
+        'input': {'set': args.input_file,
+                  'frame': args.frame_number,
+                  'grid': {'size': gspc,
+                           'lim': glim,
+                           'method': gmethod
+                           },
+                  'ransac_itr': ransac_iterations,
+                  'smooth': args.smooth,
+                  'optol': optimization_tolerance
+                  },
+        'time': {
+            'total': tt_total,
+            'edgel': tt_edgel_extraction,
+            'ransac': tt_initial_estimate,
+            'sqp': tt_filtersqp
+            },
+        'Nedgels': pic.edgels.shape[0],
+        'sqp_itr': sqp_iters,
+        'ransac_ori_est': first_orientation_estimate,
+        'ori_est': final_orientation_estimate,
+        }
 
     print json.dumps(output_data)
 

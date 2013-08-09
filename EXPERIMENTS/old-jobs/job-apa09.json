@@ -1,0 +1,26 @@
+{
+    "do_robust": 1,
+    "do_optimization": 1,
+
+    "fp_robust": [3,1,0.15],
+    "fp_optimization": [3,1,0.15],
+
+    "gaussian_smoothing_factor": 1.0,
+
+    "grid_spacing": 4,
+    "edge_detection_method": 2,
+    "gradient_threshold": 20.0,
+
+    "initial_trials": 10000,
+
+    "optimization_tolerance": 1e-12,
+
+    "projection_model": "harris",
+
+    "principal_point": [500, 336.0],
+    "focal_distance": 788.854413422,
+    "distortion_coefficient": -160.084085435,
+
+    "root_directory": "/home/nwerneck/ciencia/DADOS/apa09",
+    "filename_format": "%08d.jpg"
+}
