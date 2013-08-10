@@ -1,0 +1,9 @@
+{
+    "root_directory": "/home/nwerneck/ciencia/DADOS/street01",
+    "filename_format": "%08d.png",
+
+    "projection_model": "cylindrical_equidistant",
+
+    "principal_point": [500.5, 250.5],
+    "focal_distance":  159.1549
+}

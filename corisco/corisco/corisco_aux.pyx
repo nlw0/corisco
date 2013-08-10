@@ -281,7 +281,7 @@ cdef inline void normalize(double* x, double* y):
     # cdef double fn = (x[0]**2+y[0]**2)**-.5
     cdef float fni = x[0]*x[0]+y[0]*y[0]
     cdef float fn
-    SSE_rsqrt_NR(&fn,&fni)
+    SSE_rsqrt_NR(&fn, &fni)
 
     x[0] = fn*x[0]
     y[0] = fn*y[0]
@@ -780,18 +780,18 @@ def angle_error_with_jacobians(
     for N in range(Np):
         minerr=10.
         ## Read values for new edgel.
-        qx = ed_data[N*4+ 0]
-        qy = ed_data[N*4+ 1]
-        ux = ed_data[N*4+ 2]
-        uy = ed_data[N*4+ 3]
+        qx = ed_data[N * 4 + 0]
+        qy = ed_data[N * 4 + 1]
+        ux = ed_data[N * 4 + 2]
+        uy = ed_data[N * 4 + 3]
 
         ## Read the Jacbian coefficients.
-        dxdX = J_data[N*6+0]
-        dxdY = J_data[N*6+1]
-        dxdZ = J_data[N*6+2]
-        dydX = J_data[N*6+3]
-        dydY = J_data[N*6+4]
-        dydZ = J_data[N*6+5]               
+        dxdX = J_data[N * 6 + 0]
+        dxdY = J_data[N * 6 + 1]
+        dxdZ = J_data[N * 6 + 2]
+        dydX = J_data[N * 6 + 3]
+        dydY = J_data[N * 6 + 4]
+        dydZ = J_data[N * 6 + 5]               
 
         ##############################################################
         ## Calculate the predicted value and the error for each
@@ -805,10 +805,11 @@ def angle_error_with_jacobians(
             ## Find the predicted edgel direction.
             vx = dxdX * rx + dxdY * ry + dxdZ * rz
             vy = dydX * rx + dydY * ry + dydZ * rz
-            normalize(&vx,&vy)
+            #normalize(&vx, &vy)
+            external_normalize(&vx, &vy)
             ## Calculate angle error using vector product, then use
             ## the selected M-estimator to calculate the residue.
-            vec_prod = ux*vx+uy*vy
+            vec_prod = ux * vx + uy * vy
             err = mlogL(vec_prod, rho_data)
             minerr = err if err < minerr else minerr
         ## Add the smallest error from this edgel to the total error.
@@ -1968,6 +1969,7 @@ def interpretation_plane_error(
 
     return norm
 
+cdef extern void external_normalize(double*, double*)
 cdef extern void SSE_rsqrt(float*, float*)
 cdef extern void SSE_rsqrt_NR(float*, float*)
 cdef extern void myvec_sumacc(float*, float*)

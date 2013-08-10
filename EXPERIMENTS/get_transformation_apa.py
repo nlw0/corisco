@@ -34,7 +34,7 @@ def solve_transformation(Lq, Lr):
     return Quat(lres[0]).normalize()
 
 
-def load_json_dump(filename, imgset, it, gs):
+def load_json_dump(filename, imgset, it, gs, smooth=None):
     with open(filename) as fp:
         data = [json.loads(x) for x in fp.readlines()]
     
@@ -42,7 +42,8 @@ def load_json_dump(filename, imgset, it, gs):
             for x in data
             if x['input']['set'] == imgset
             and x['input']['ransac_itr'] == it
-            and x['input']['grid']['size'] == gs]
+            and x['input']['grid']['size'] == gs
+            and (smooth is None or x['input']['smooth'] == smooth)]
 
 def fix_reference_quaternions(Lr):
     ref = Quat(cos(pi/8),0,sin(pi/8),0)
@@ -78,7 +79,7 @@ if __name__ == '__main__':
 
     # b1 = array(load_json_dump('solutions_apa.dat', 'set-apa09.json', it, gs))
     # b2 = array(load_json_dump('solutions_apa.dat', 'set-apa08.json', it, gs))
-    b1 = array(load_json_dump('solutions_apa.dat', 'set-apa09.json', it, gs))
+    b1 = array(load_json_dump('solutions_apa.dat', 'set-apa09.json', it, gs, smooth=1.0))
     b2 = array(load_json_dump('solutions_apa.dat', 'set-apa08.json', it, gs))
 
     ## Get orientations ordered by frame number

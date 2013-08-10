@@ -1,0 +1,8 @@
+{
+    "root_directory": "/home/nwerneck/ciencia/DADOS/yorkurban",
+    "filename_format": "%08d.png",
+
+    "projection_model": "pinhole",
+    "principal_point": [307.55, 251.45],
+    "focal_distance":  674.92
+}
