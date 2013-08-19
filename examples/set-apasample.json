@@ -1,5 +1,5 @@
 {
-    "filename_format": "/home/nwerneck/ciencia/DADOS/apa08/frames/%08d.jpg",
+    "filename_format": "apasample/frames/%08d.jpg",
 
     "intrinsic_parameters": {
         "projection_model": "harris",

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #coding:utf-8
 
-# Copyright 2012 Nicolau Leal Werneck, Anna Helena Reali Costa and
+# Copyright 2012, 2013 Nicolau Leal Werneck, Anna Helena Reali Costa and
 # Universidade de São Paulo
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
+import code
+import cStringIO
+
 import numpy as np
-from numpy import array
-import scipy
+from numpy import array, zeros
 import scipy.ndimage
 
 import corisco_aux
@@ -57,9 +58,9 @@ def aligned_quaternion(v):
 
 class Picture(object):
 
-  def __init__(self, image_set_config, frame_number, smooth_factor=None):
+  def __init__(self, ipconf, image_file_str):
 
-    self.read_image(image_set_config, frame_number, smooth_factor=smooth_factor)
+    self.read_image(image_file_str)
 
     ## Image dimensions
     self.Iheight, self.Iwidth = self.frame.shape[:2]
@@ -68,7 +69,7 @@ class Picture(object):
     self.new_labels = []
     self.rect_edgels = []
 
-    self.read_intrinsic_parameters(image_set_config)
+    self.read_intrinsic_parameters(ipconf)
 
     ## Focal distance (default)
     self.fd = self.i_param[1]
@@ -77,43 +78,42 @@ class Picture(object):
     self.middlex = self.i_param[2]
     self.middley = self.i_param[3]
 
-  def read_image(self, isconf, frame_number, smooth_factor=None):
-    filename = (isconf['root_directory'] +
-                '/frames/' +
-                isconf['filename_format']) % frame_number
-    ## Open image, convert to RGB floating point, no alpha.
-    self.frame = array(Image.open(filename).convert('RGB'), dtype=float)[:,:,:3]
+  def read_image(self, image_file_str):
+    '''Read image, as a string, and convert to RGB floating point, no alpha.'''
+    image_file = cStringIO.StringIO(image_file_str)
+    self.frame = array(Image.open(image_file).convert('RGB'), dtype=float)[:,:,:3]
 
   def smooth(self, smooth_factor):
-    # Apply Gaussian smoothing to image.
-    for c in range(3):
-      self.frame[:,:,c] = scipy.ndimage.gaussian_filter(self.frame[:,:,c], smooth_factor)
+    '''Apply Gaussian smoothing to image.'''
+    if smooth_factor > 0.0:
+      for c in range(3):
+        self.frame[:,:,c] = scipy.ndimage.gaussian_filter(self.frame[:,:,c], smooth_factor)
 
-  def read_intrinsic_parameters(self, isconf):
-    if not 'projection_model' in isconf:
+  def read_intrinsic_parameters(self, ipconf):
+    if not 'projection_model' in ipconf:
       raise Exception("Camera model not specified.")
     else:
-      model = isconf['projection_model']
+      model = ipconf['projection_model']
 
     if not (model in ['pinhole', 'harris', 'polar_equidistant', 'cylindrical_equidistant']):
       raise NotImplementedError
 
     elif model == 'pinhole':
-      focal_distance = isconf['focal_distance']
-      pp = isconf['principal_point']
+      focal_distance = ipconf['focal_distance']
+      pp = ipconf['principal_point']
       self.i_param = array([0.0, focal_distance, pp[0], pp[1]])
     elif model == 'harris':
-      focal_distance = isconf['focal_distance']
-      pp = isconf['principal_point']
-      distortion = isconf['distortion_coefficient']
+      focal_distance = ipconf['focal_distance']
+      pp = ipconf['principal_point']
+      distortion = ipconf['distortion_coefficient']
       self.i_param = array([2.0, focal_distance, pp[0], pp[1], distortion])
     elif model == 'polar_equidistant':
-      focal_distance = isconf['focal_distance']
-      pp = isconf['principal_point']
+      focal_distance = ipconf['focal_distance']
+      pp = ipconf['principal_point']
       self.i_param = array([3.0, focal_distance, pp[0], pp[1]])
     elif model == 'cylindrical_equidistant':
-      focal_distance = isconf['focal_distance']
-      pp = isconf['principal_point']
+      focal_distance = ipconf['focal_distance']
+      pp = ipconf['principal_point']
       self.i_param = array([4.0, focal_distance, pp[0], pp[1]])
 
   def extract_edgels(self, gstep, glim, method):
@@ -142,15 +142,15 @@ class Picture(object):
       raise Exception('Invalid edgel extraction method.')
       
     ## Calculate gradients
-    gradx = scipy.zeros(self.frame.shape, dtype=np.float32)
-    grady = scipy.zeros(self.frame.shape, dtype=np.float32)
+    gradx = zeros(self.frame.shape, dtype=np.float32)
+    grady = zeros(self.frame.shape, dtype=np.float32)
     for c in range(3):
       scipy.ndimage.convolve(self.frame[:,:,c], self.derivative_filter,  gradx[:,:,c] )
       scipy.ndimage.convolve(self.frame[:,:,c], self.derivative_filter.T, grady[:,:,c] )
 
     if method >= 3 and method <= 5:
       ## Calculate laplacean
-      A20 = scipy.zeros(self.frame.shape, dtype=np.float32)
+      A20 = zeros(self.frame.shape, dtype=np.float32)
       for c in range(3):
         scipy.ndimage.convolve(self.frame[:,:,c], self.laplacean_filter, A20[:,:,c] )
 
@@ -161,7 +161,7 @@ class Picture(object):
       self.edgels = corisco_aux.edgel_extractor(gstep, glim, gradx, grady)
 
     ## Array that contains the label of each edgel
-    self.labels = np.ascontiguousarray( np.zeros(len(self.edgels), dtype=np.int32) )
+    self.labels = np.ascontiguousarray( zeros(len(self.edgels), dtype=np.int32) )
 
   ##################################################################
   ## Calculate initial estimate by picking random edgels and
@@ -238,7 +238,7 @@ class Picture(object):
       ax.plot((ed[:,[0,0]] - scale*np.c_[-ed[:,3], ed[:,3]]).T,
               (ed[:,[1,1]] + scale*np.c_[-ed[:,2], ed[:,2]]).T, dir_colors[lab])
 
-  def plot_vdirs(self, ax, spacing, orientation, labrange=[0,1,2]):
+  def plot_vdirs(self, ax, spacing, Lorientation, labrange=[0,1,2]):
     '''
     Plot the vanishing point directions at various pixels. ax is a
     matplotlib axes, taken with "gca()". Spacing the separation
@@ -246,15 +246,17 @@ class Picture(object):
 
     '''
 
-    qq = spacing*0.45*np.array([-1,+1])
+    orientation = Quat(array(Lorientation))
+
+    qq = spacing * 0.45 * array([-1, +1])
     bx = 0.+(self.Iwidth/2)%spacing
     by = 0.+(self.Iheight/2)%spacing
     qL = np.mgrid[bx:self.Iwidth:spacing,by:self.Iheight:spacing].T.reshape((-1,2))
     Nq = qL.shape[0]
     # vL = equidistant_vdirs(self.middlex, self.middley, self.fd,
-    #                             orientation.q, np.array(qL, dtype=np.float32))
-    vL = corisco_aux.calculate_vdirs(orientation.q, np.array(qL, dtype=np.float32), self.i_param)
-    LL = np.zeros((3,Nq,4))
+    #                             orientation.q, array(qL, dtype=np.float32))
+    vL = corisco_aux.calculate_vdirs(orientation.q, array(qL, dtype=np.float32), self.i_param)
+    LL = zeros((3,Nq,4))
     for lab in labrange:
       for num in range(Nq):
         vx,vy = vL[lab,num]

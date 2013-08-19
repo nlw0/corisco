@@ -24,5 +24,10 @@ setup(
             sources=["filtersqp/trust_rootfind_module.cc"],
         ),
     ],
+
+    install_requires=[
+        'numpy'
+    ],
+
     include_dirs=[numpy.get_include()],
 )

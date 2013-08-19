@@ -104,15 +104,15 @@ def estimate_orientation(process_args, image_file_str):
         qini.q, .0, 1e-3, sqp_funcs, args_f, delta_tol=optimization_tolerance
         )
 
-    try:
-        filterSQPout = filtersqp.filterSQP(
-            qini.q, .0, 1e-3, sqp_funcs, args_f, delta_tol=optimization_tolerance
-            )
-    except:
-        print '*** Numerical error for input:'
-        print {'img_md5': get_hash(image_file_str),
-               'proc_args': process_args}
-        raise SystemExit
+    # try:
+    #     filterSQPout = filtersqp.filterSQP(
+    #         qini.q, .0, 1e-3, sqp_funcs, args_f, delta_tol=optimization_tolerance
+    #         )
+    # except:
+    #     print '*** Numerical error for input:'
+    #     print {'img_md5': get_hash(image_file_str),
+    #            'proc_args': process_args}
+    #     raise SystemExit
 
     xo, err, sqp_iters,Llam,Lrho = filterSQPout
     qopt = Quat(xo)

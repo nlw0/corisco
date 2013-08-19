@@ -111,7 +111,7 @@ if __name__ == '__main__':
         exps = [json.loads(x) for x in fp.readlines()]
     
     result_errors = {
-        gs: (get_errors(exps, refs, 'set-apa09.json', it, gs, smooth=1.0) +
+        gs: get_errors(exps, refs, it, gs, smooth=1.0) +
              get_errors(exps, refs, 'set-apa08.json', it, gs))
         for gs in 2 ** mgrid[0:8]
     }

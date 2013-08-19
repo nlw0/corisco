@@ -1,8 +1,9 @@
 {
-    "root_directory": "/home/nwerneck/ciencia/DADOS/yorkurban",
-    "filename_format": "%08d.png",
+    "filename_format": "/home/nwerneck/ciencia/DADOS/yorkurban/frames/%08d.jpg",
 
-    "projection_model": "pinhole",
-    "principal_point": [307.55, 251.45],
-    "focal_distance":  674.92
+    "intrinsic_parameters": {
+        "projection_model": "pinhole",
+        "principal_point": [307.55, 251.45],
+        "focal_distance":  674.92
+    }
 }

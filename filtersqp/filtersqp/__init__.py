@@ -43,9 +43,8 @@ def trust_region_step(G, g, rho, rho_tol):
     try:
         lam, v = np.linalg.eig(G)
     except:
-        print '*** ERROR, invalid Hessian matrix'
-        print G
-        print '***'
+        # print '*** ERROR, invalid Hessian matrix'
+        # print G
         raise Exception
     ## lam, v = svd_eig(G) ## This is WRONG! (?)
     # print '==lam',lam
@@ -160,7 +159,7 @@ def SQP_step(x, lam, rho, filt,
     ## Calculate the reduced gradient
     m = dot(Z,g + dot(dot(G,Y.T)[:,0],b))
     
-    ## Find the restricted step using a trust-region solver.
+    ## Find the restricted step using a trust-region solver.    
     y = trust_region_step(M, m, rho, rho * 1e-1)
     if y.shape[0]==1:
         y = np.r_[[y]]
@@ -192,7 +191,7 @@ def SQP_step(x, lam, rho, filt,
     ##################################################################
 
     ## Now we calculate the delta in the direction of the "range" of
-    ## the local approcximation to the constraint space, and then the
+    ## the local approximation to the constraint space, and then the
     ## total displacement.
     delta_range = dot(b, Y[0])
     delta = delta_null + delta_range
@@ -200,14 +199,16 @@ def SQP_step(x, lam, rho, filt,
     newlam = dot(Y,g)
     newx = x + delta
 
-    filt_pass = True
+    # df = func_val(newx, *func_args) - func_val(x, *func_args)
+    # df_pred = dot(g, delta) + .5 * dot(dot(delta, G), delta)
+    # pred_pass = (df > (1.0 * df_pred)) and (df < (2.0 * -df_pred))
 
-    ## Use filter to test point, and update filter
+    # print pred_pass, df_pred, df
+
+    ## Use filter to test new point, and update filter
     pt = array([func_val(newx,*func_args), np.abs(cons_val(newx)-1)])
-    # print pt
-    # print filt.values[filt.valid]
-    # print filt.dominated(pt, delta_q)
-    # print 70*'-'
+
+    # if pred_pass and (not filt.dominated(pt)):
     if not filt.dominated(pt):
         filt_pass = True
         # rho = min(0.8, rho * 2.0)
@@ -215,7 +216,7 @@ def SQP_step(x, lam, rho, filt,
         filt.add(pt, delta_q, newlam)
     else:
         filt_pass = False
-        rho = nd *.25
+        rho = nd *.5
         newlam = lam
         delta = 0
 
@@ -227,12 +228,13 @@ def filterSQP(x0, lam0, rho0, funcs, args_f, delta_tol=1e-15):
     rho = rho0
     lam = lam0
     val_c, grad_c, hess_c, val_f, grad_f, hess_f = funcs
-    Niter = 100
+    Niter = 1000
     filt = FletcherFilter()
 
     Llam = [lam0]
     Lrho = [rho0]
     for it in range(0,Niter):
+        # print '---', it, rho
         delta, lam, rho, filt_pass, pt = SQP_step(x, lam, rho, filt,
                                                  val_c, grad_c, hess_c,
                                                  val_f, grad_f, hess_f, args_f)

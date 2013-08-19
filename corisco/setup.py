@@ -18,6 +18,7 @@ setup(
     entry_points={
         'console_scripts': [
             'corisco = corisco.tools.corisco_estimate_orientation:main',
+            'corisco_gen_params = corisco.tools.corisco_generate_mapreduce_inputs:main',
         ]
     },
 
@@ -26,7 +27,10 @@ setup(
     test_suite='tests.collection',
 
     install_requires=[
-        'filtersqp'
+        'filtersqp',
+        'cython',
+        'PIL',
+        'numpy'
     ],
 
     cmdclass = {'build_ext': build_ext},
