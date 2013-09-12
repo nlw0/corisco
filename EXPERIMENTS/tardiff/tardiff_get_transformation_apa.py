@@ -71,17 +71,14 @@ if __name__ == '__main__':
         ori = Quat(mtq(Lori[n]))
         Lq[n] = ori.normalize().q * array([1,-1,1,1])
 
-    ## Read the Corisco output
-    it = 10000
-    gs = 1
+    ## Read the tardiff output
 
-    # b1 = array(load_json_dump('solutions_apa.dat', 'set-apa09.json', it, gs))
-    # b2 = array(load_json_dump('solutions_apa.dat', 'set-apa08.json', it, gs))
-    b1 = array(load_json_dump('solutions_apa.dat', 'set-apa09.json', it, gs, smooth=1.0))
-    b2 = array(load_json_dump('solutions_apa.dat', 'set-apa08.json', it, gs))
+
+
+
 
     ## Get orientations ordered by frame number
-    Lr = r_[b1[argsort(b1[:,0]), 1:], b2[argsort(b2[:,0]), 1:]]
+    Lr = loadtxt('tardiff_quaternions.dat')
 
     ## fix and normalize reference quaternions.
     fix_reference_quaternions(Lr)
@@ -103,6 +100,8 @@ if __name__ == '__main__':
     #print zip(dd, Lr_hat)
     tref = [dict(meta.items() + [("ori_ref", ori.tolist())])
            for meta, ori in zip(dd, Lr_hat)]
+
+    savetxt('tardiff_apast_ref_transformed.dat', Lr_hat)
 
     with open('transformed_reference_apa.dat', 'w') as fp:
         json.dump(tref, fp, indent=4)
