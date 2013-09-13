@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
 
     ## Get orientations ordered by frame number
-    Lr = loadtxt('tardiff_quaternions.dat')
+    Lr = loadtxt('tardiff_undistorted_quaternions.dat')
 
     ## fix and normalize reference quaternions.
     fix_reference_quaternions(Lr)
@@ -101,10 +101,10 @@ if __name__ == '__main__':
     tref = [dict(meta.items() + [("ori_ref", ori.tolist())])
            for meta, ori in zip(dd, Lr_hat)]
 
-    savetxt('tardiff_apast_ref_transformed.dat', Lr_hat)
+    savetxt('tardiff_apastundistorted_ref_transformed.dat', Lr_hat)
 
-    with open('transformed_reference_apa.dat', 'w') as fp:
-        json.dump(tref, fp, indent=4)
+    # with open('transformed_reference_apaundistorted.dat', 'w') as fp:
+    #     json.dump(tref, fp, indent=4)
 
     ## Calculate errors between each estimated orientation and
     ## transformed reference.
